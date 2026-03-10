@@ -1,0 +1,8 @@
+{
+  "name": "Nexus CRM",
+  "description": "A comprehensive Employee Management System and CRM with real-time updates, AI assistance, and role-based access control.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
