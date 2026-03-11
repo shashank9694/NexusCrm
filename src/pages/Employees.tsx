@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { UserPlus, Search, Filter, Mail, Shield, Building2 } from 'lucide-react';
+import { UserPlus, Search, Filter, Mail, Shield, Building2, X } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export const Employees: React.FC = () => {
@@ -8,12 +8,14 @@ export const Employees: React.FC = () => {
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<any>(null);
   const [newEmployee, setNewEmployee] = useState({
     name: '',
     email: '',
     role: 'employee',
     department: '',
-    password: 'password123'
+    password: 'password123',
+    leave_balance: { sick: 12, vacation: 15, personal: 10 }
   });
 
   useEffect(() => {
@@ -49,8 +51,11 @@ export const Employees: React.FC = () => {
 
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch('/api/users', {
-      method: 'POST',
+    const url = editingEmployee ? `/api/auth/users/${editingEmployee.id}` : '/api/auth/users';
+    const method = editingEmployee ? 'PATCH' : 'POST';
+    
+    const res = await fetch(url, {
+      method,
       headers: { 
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}` 
@@ -59,8 +64,22 @@ export const Employees: React.FC = () => {
     });
     if (res.ok) {
       setShowModal(false);
+      setEditingEmployee(null);
       fetchEmployees();
     }
+  };
+
+  const openEditModal = (emp: any) => {
+    setEditingEmployee(emp);
+    setNewEmployee({
+      name: emp.name,
+      email: emp.email,
+      role: emp.role,
+      department: emp.department || '',
+      password: '', // Don't send password on edit
+      leave_balance: emp.leave_balance || { sick: 12, vacation: 15, personal: 10 }
+    });
+    setShowModal(true);
   };
 
   return (
@@ -123,10 +142,20 @@ export const Employees: React.FC = () => {
                 <Building2 size={14} />
                 <span>{emp.department}</span>
               </div>
+              {emp.leave_balance && (
+                <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-[10px] grid grid-cols-3 gap-1">
+                  <div>S: {emp.leave_balance.sick}</div>
+                  <div>V: {emp.leave_balance.vacation}</div>
+                  <div>P: {emp.leave_balance.personal}</div>
+                </div>
+              )}
             </div>
 
-            <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 flex space-x-2">
-              <button className="flex-1 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors">
+            <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-2">
+              <button 
+                onClick={() => openEditModal(emp)}
+                className="flex-1 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+              >
                 Edit Profile
               </button>
               <button 
@@ -151,12 +180,12 @@ export const Employees: React.FC = () => {
             className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl overflow-hidden"
           >
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-              <h3 className="text-xl font-bold">Add New Employee</h3>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600">
-                <Filter size={20} />
+              <h3 className="text-xl font-bold">{editingEmployee ? 'Edit Employee' : 'Add New Employee'}</h3>
+              <button onClick={() => { setShowModal(false); setEditingEmployee(null); }} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleAddEmployee} className="p-6 space-y-4">
+            <form onSubmit={handleAddEmployee} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               <div>
                 <label className="block text-sm font-medium mb-1">Full Name</label>
                 <input 
@@ -177,6 +206,18 @@ export const Employees: React.FC = () => {
                   className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
+              {!editingEmployee && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Password</label>
+                  <input 
+                    required
+                    type="password" 
+                    value={newEmployee.password}
+                    onChange={(e) => setNewEmployee({...newEmployee, password: e.target.value})}
+                    className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">Role</label>
@@ -186,6 +227,7 @@ export const Employees: React.FC = () => {
                     className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="employee">Employee</option>
+                    <option value="tl">Team Lead</option>
                     <option value="manager">Manager</option>
                     <option value="hr">HR</option>
                     <option value="admin">Admin</option>
@@ -201,10 +243,53 @@ export const Employees: React.FC = () => {
                   />
                 </div>
               </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                <h4 className="text-sm font-bold mb-3">Leave Balances</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Sick</label>
+                    <input 
+                      type="number" 
+                      value={newEmployee.leave_balance.sick}
+                      onChange={(e) => setNewEmployee({
+                        ...newEmployee, 
+                        leave_balance: { ...newEmployee.leave_balance, sick: parseInt(e.target.value) }
+                      })}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Vacation</label>
+                    <input 
+                      type="number" 
+                      value={newEmployee.leave_balance.vacation}
+                      onChange={(e) => setNewEmployee({
+                        ...newEmployee, 
+                        leave_balance: { ...newEmployee.leave_balance, vacation: parseInt(e.target.value) }
+                      })}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Personal</label>
+                    <input 
+                      type="number" 
+                      value={newEmployee.leave_balance.personal}
+                      onChange={(e) => setNewEmployee({
+                        ...newEmployee, 
+                        leave_balance: { ...newEmployee.leave_balance, personal: parseInt(e.target.value) }
+                      })}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="pt-4 flex space-x-3">
                 <button 
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => { setShowModal(false); setEditingEmployee(null); }}
                   className="flex-1 py-2 font-medium text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
                 >
                   Cancel
@@ -213,7 +298,7 @@ export const Employees: React.FC = () => {
                   type="submit"
                   className="flex-1 py-2 font-medium bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl transition-colors"
                 >
-                  Create Account
+                  {editingEmployee ? 'Save Changes' : 'Create Account'}
                 </button>
               </div>
             </form>

@@ -2,6 +2,7 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   LayoutDashboard, 
+  Briefcase,
   Users, 
   CalendarCheck, 
   CheckSquare, 
@@ -13,7 +14,8 @@ import {
   Moon,
   Sun,
   Menu,
-  X
+  X,
+  Bug
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -32,17 +34,47 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }: any) => (
 );
 
 export const DashboardLayout: React.FC<{ children: React.ReactNode, activeTab: string, setActiveTab: (tab: string) => void }> = ({ children, activeTab, setActiveTab }) => {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
   const [isDarkMode, setIsDarkMode] = React.useState(false);
+  const [notifications, setNotifications] = React.useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = React.useState(false);
+
+  React.useEffect(() => {
+    if (token) {
+      fetchNotifications();
+    }
+  }, [token]);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch('/api/notifications', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) setNotifications(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const markRead = async (id: string) => {
+    await fetch(`/api/notifications/${id}/read`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    fetchNotifications();
+  };
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'hr', 'manager', 'employee'] },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'hr', 'manager', 'tl', 'employee'] },
+    { id: 'projects', label: 'Projects', icon: Briefcase, roles: ['admin', 'hr', 'manager', 'tl', 'employee'] },
     { id: 'employees', label: 'Employees', icon: Users, roles: ['admin', 'hr'] },
-    { id: 'attendance', label: 'Attendance', icon: CalendarCheck, roles: ['admin', 'hr', 'manager', 'employee'] },
-    { id: 'tasks', label: 'Tasks', icon: CheckSquare, roles: ['admin', 'hr', 'manager', 'employee'] },
-    { id: 'leaves', label: 'Leaves', icon: FileText, roles: ['admin', 'hr', 'manager', 'employee'] },
-    { id: 'performance', label: 'Performance', icon: TrendingUp, roles: ['admin', 'hr', 'manager', 'employee'] },
+    { id: 'attendance', label: 'Attendance', icon: CalendarCheck, roles: ['admin', 'hr', 'manager', 'tl', 'employee'] },
+    { id: 'tasks', label: 'Tasks', icon: CheckSquare, roles: ['admin', 'hr', 'manager', 'tl', 'employee'] },
+    { id: 'leaves', label: 'Leaves', icon: FileText, roles: ['admin', 'hr', 'manager', 'tl', 'employee'] },
+    { id: 'performance', label: 'Performance', icon: TrendingUp, roles: ['admin', 'hr', 'manager', 'tl', 'employee'] },
+    { id: 'bugs', label: 'Bugs', icon: Bug, roles: ['admin', 'hr', 'manager', 'tl', 'employee', 'tester'] },
   ];
 
   const filteredMenu = menuItems.filter(item => item.roles.includes(user?.role || ''));
@@ -117,10 +149,48 @@ export const DashboardLayout: React.FC<{ children: React.ReactNode, activeTab: s
             >
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg relative">
-              <Bell size={20} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg relative"
+              >
+                <Bell size={20} />
+                {notifications.some(n => !n.is_read) && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {showNotifications && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden"
+                  >
+                    <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                      <h3 className="font-bold">Notifications</h3>
+                      <button onClick={() => setShowNotifications(false)} className="text-xs text-indigo-600 hover:underline">Close</button>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      {notifications.map((n) => (
+                        <div 
+                          key={n.id} 
+                          onClick={() => markRead(n.id)}
+                          className={`p-4 border-b border-slate-50 dark:border-slate-800/50 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${!n.is_read ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}
+                        >
+                          <p className={`text-sm ${!n.is_read ? 'font-bold' : 'text-slate-600 dark:text-slate-400'}`}>{n.message}</p>
+                          <p className="text-[10px] text-slate-400 mt-1">{new Date(n.createdAt).toLocaleString()}</p>
+                        </div>
+                      ))}
+                      {notifications.length === 0 && (
+                        <div className="p-8 text-center text-slate-500 text-sm">No notifications yet.</div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
 

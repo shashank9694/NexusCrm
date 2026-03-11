@@ -9,6 +9,8 @@ import { Tasks } from './pages/Tasks';
 import { Leaves } from './pages/Leaves';
 import { Performance } from './pages/Performance';
 import { Profile } from './pages/Profile';
+import { ProjectManagement } from './pages/ProjectManagement';
+import { BugTracking } from './pages/BugTracking';
 
 const AppContent = () => {
   const { token } = useAuth();
@@ -21,11 +23,13 @@ const AppContent = () => {
   return (
     <DashboardLayout activeTab={activeTab} setActiveTab={setActiveTab}>
       {activeTab === 'dashboard' && <Dashboard />}
+      {activeTab === 'projects' && <ProjectManagement onNavigate={setActiveTab} />}
       {activeTab === 'employees' && <Employees />}
       {activeTab === 'attendance' && <Attendance />}
       {activeTab === 'tasks' && <Tasks />}
       {activeTab === 'leaves' && <Leaves />}
       {activeTab === 'performance' && <Performance />}
+      {activeTab === 'bugs' && <BugTracking />}
       {activeTab === 'profile' && <Profile />}
     </DashboardLayout>
   );

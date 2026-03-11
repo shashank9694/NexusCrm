@@ -1,6 +1,7 @@
 import { Attendance } from "../models/Attendance.ts";
 
 export const checkIn = async (req: any, res: any) => {
+  const now = new Date();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
@@ -8,13 +9,18 @@ export const checkIn = async (req: any, res: any) => {
     const existing = await Attendance.findOne({ user_id: req.user.id, date: today });
     if (existing) return res.status(400).json({ error: "Already checked in" });
     
+    // Check if late (after 9:00 AM)
+    const nineAM = new Date();
+    nineAM.setHours(9, 0, 0, 0);
+    const status = now > nineAM ? 'late' : 'present';
+
     await Attendance.create({
       user_id: req.user.id,
       date: today,
-      check_in: new Date(),
-      status: 'present'
+      check_in: now,
+      status: status
     });
-    res.json({ success: true });
+    res.json({ success: true, status });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

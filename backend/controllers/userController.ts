@@ -19,7 +19,8 @@ export const login = async (req: any, res: any) => {
         id: user._id, 
         name: user.name, 
         role: user.role, 
-        email: user.email 
+        email: user.email,
+        shift: user.shift
       } 
     });
   } catch (err: any) {
@@ -29,14 +30,16 @@ export const login = async (req: any, res: any) => {
 
 export const getUsers = async (req: any, res: any) => {
   try {
-    const users = await User.find({}, 'name email role department status');
+    const users = await User.find({}, 'name email role department status shift leave_balance');
     res.json(users.map(u => ({
       id: u._id,
       name: u.name,
       email: u.email,
       role: u.role,
       department: u.department,
-      status: u.status
+      status: u.status,
+      shift: u.shift,
+      leave_balance: u.leave_balance
     })));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -44,7 +47,13 @@ export const getUsers = async (req: any, res: any) => {
 };
 
 export const createUser = async (req: any, res: any) => {
-  const { name, email, password, role, department, manager_id } = req.body;
+  const { name, email, password, role, department, manager_id, leave_balance } = req.body;
+  
+  // Only HR or Admin can create users
+  if (req.user.role !== 'hr' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: "Forbidden: Only HR or Admin can add employees" });
+  }
+
   const hashedPassword = bcrypt.hashSync(password || "password123", 10);
   try {
     const user = await User.create({
@@ -53,7 +62,8 @@ export const createUser = async (req: any, res: any) => {
       password: hashedPassword,
       role,
       department,
-      manager_id: manager_id || null
+      manager_id: manager_id || null,
+      leave_balance: leave_balance || { sick: 12, vacation: 15, personal: 10 }
     });
     res.json({ id: user._id });
   } catch (err: any) {
@@ -62,7 +72,13 @@ export const createUser = async (req: any, res: any) => {
 };
 
 export const updateUser = async (req: any, res: any) => {
-  const { name, email, role, department, status, manager_id } = req.body;
+  const { name, email, role, department, status, manager_id, leave_balance } = req.body;
+  
+  // Only HR or Admin can update core user details
+  if (req.user.role !== 'hr' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
   try {
     await User.findByIdAndUpdate(req.params.id, {
       name,
@@ -70,7 +86,8 @@ export const updateUser = async (req: any, res: any) => {
       role,
       department,
       status,
-      manager_id: manager_id || null
+      manager_id: manager_id || null,
+      leave_balance
     });
     res.json({ success: true });
   } catch (err: any) {
@@ -80,7 +97,7 @@ export const updateUser = async (req: any, res: any) => {
 
 export const getProfile = async (req: any, res: any) => {
   try {
-    const user = await User.findById(req.user.id, 'name email role department status avatar');
+    const user = await User.findById(req.user.id, 'name email role department status avatar shift');
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json({
       id: user._id,
@@ -89,7 +106,8 @@ export const getProfile = async (req: any, res: any) => {
       role: user.role,
       department: user.department,
       status: user.status,
-      avatar: user.avatar
+      avatar: user.avatar,
+      shift: user.shift
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { FileText, Plus, Check, X, Clock } from 'lucide-react';
+import { FileText, Plus, Check, X, Clock, AlertCircle } from 'lucide-react';
 
 export const Leaves: React.FC = () => {
   const { token, user } = useAuth();
@@ -12,6 +12,8 @@ export const Leaves: React.FC = () => {
     end_date: '',
     reason: ''
   });
+
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchLeaves();
@@ -25,7 +27,17 @@ export const Leaves: React.FC = () => {
     setLeaves(data);
   };
 
-  const handleUpdateStatus = async (leaveId: number, status: string) => {
+  const validateLeaveForm = () => {
+    if (!newLeave.start_date) return "Start date is required";
+    if (!newLeave.end_date) return "End date is required";
+    if (new Date(newLeave.start_date) > new Date(newLeave.end_date)) {
+      return "End date cannot be before start date";
+    }
+    if (!newLeave.reason.trim()) return "Reason is required";
+    return null;
+  };
+
+  const handleUpdateStatus = async (leaveId: string, status: string) => {
     const res = await fetch(`/api/leaves/${leaveId}`, {
       method: 'PATCH',
       headers: { 
@@ -39,19 +51,47 @@ export const Leaves: React.FC = () => {
     }
   };
 
-  const handleApplyLeave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await fetch('/api/leaves', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      },
-      body: JSON.stringify(newLeave)
+  const handleDeleteLeave = async (leaveId: string) => {
+    if (!window.confirm('Are you sure you want to delete this leave request?')) return;
+    const res = await fetch(`/api/leaves/${leaveId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
     });
     if (res.ok) {
-      setShowModal(false);
       fetchLeaves();
+    }
+  };
+
+  const handleApplyLeave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    const validationError = validateLeaveForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/leaves', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify(newLeave)
+      });
+      if (res.ok) {
+        setShowModal(false);
+        setNewLeave({ type: 'vacation', start_date: '', end_date: '', reason: '' });
+        fetchLeaves();
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Failed to apply for leave');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+      console.error(err);
     }
   };
 
@@ -73,18 +113,18 @@ export const Leaves: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-indigo-600 p-6 rounded-2xl text-white">
-          <h4 className="text-indigo-100 text-sm font-medium">Annual Leave</h4>
-          <div className="text-3xl font-bold mt-1">12 / 20</div>
+          <h4 className="text-indigo-100 text-sm font-medium">Vacation Leave</h4>
+          <div className="text-3xl font-bold mt-1">{(user as any)?.leave_balance?.vacation || 0} / 15</div>
           <p className="text-xs text-indigo-200 mt-2">Days remaining</p>
         </div>
         <div className="bg-emerald-600 p-6 rounded-2xl text-white">
           <h4 className="text-emerald-100 text-sm font-medium">Sick Leave</h4>
-          <div className="text-3xl font-bold mt-1">8 / 10</div>
+          <div className="text-3xl font-bold mt-1">{(user as any)?.leave_balance?.sick || 0} / 12</div>
           <p className="text-xs text-emerald-200 mt-2">Days remaining</p>
         </div>
         <div className="bg-amber-600 p-6 rounded-2xl text-white">
           <h4 className="text-amber-100 text-sm font-medium">Personal Leave</h4>
-          <div className="text-3xl font-bold mt-1">3 / 5</div>
+          <div className="text-3xl font-bold mt-1">{(user as any)?.leave_balance?.personal || 0} / 10</div>
           <p className="text-xs text-amber-200 mt-2">Days remaining</p>
         </div>
       </div>
@@ -122,22 +162,32 @@ export const Leaves: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    {user?.role !== 'employee' && leave.status === 'pending' && (
-                      <div className="flex space-x-2">
+                    <div className="flex space-x-2">
+                      {(user?.role === 'admin' || user?.role === 'manager') && leave.status === 'pending' && (
+                        <>
+                          <button 
+                            onClick={() => handleUpdateStatus(leave.id, 'approved')}
+                            className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200"
+                          >
+                            <Check size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleUpdateStatus(leave.id, 'rejected')}
+                            className="p-1.5 bg-rose-100 text-rose-600 rounded-lg hover:bg-rose-200"
+                          >
+                            <X size={16} />
+                          </button>
+                        </>
+                      )}
+                      {(leave.status === 'pending' || user?.role === 'admin' || user?.role === 'manager') && (
                         <button 
-                          onClick={() => handleUpdateStatus(leave.id, 'approved')}
-                          className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200"
-                        >
-                          <Check size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleUpdateStatus(leave.id, 'rejected')}
-                          className="p-1.5 bg-rose-100 text-rose-600 rounded-lg hover:bg-rose-200"
+                          onClick={() => handleDeleteLeave(leave.id)}
+                          className="p-1.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200"
                         >
                           <X size={16} />
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -193,6 +243,14 @@ export const Leaves: React.FC = () => {
                   className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl h-24"
                 />
               </div>
+              
+              {error && (
+                <div className="p-3 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-600 dark:text-rose-400 text-sm flex items-center space-x-2">
+                  <AlertCircle size={16} />
+                  <span>{error}</span>
+                </div>
+              )}
+
               <div className="pt-4 flex space-x-3">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2 font-medium text-slate-600 hover:bg-slate-100 rounded-xl">Cancel</button>
                 <button type="submit" className="flex-1 py-2 font-medium bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl">Apply</button>

@@ -2,10 +2,11 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 
 interface User {
-  id: number;
+  id: string;
   name: string;
-  role: 'admin' | 'hr' | 'manager' | 'employee';
+  role: string;
   email: string;
+  shift?: string;
 }
 
 interface AuthContextType {

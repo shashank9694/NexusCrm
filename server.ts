@@ -16,6 +16,9 @@ import leaveRoutes from "./backend/routes/leaveRoutes.ts";
 import performanceRoutes from "./backend/routes/performanceRoutes.ts";
 import notificationRoutes from "./backend/routes/notificationRoutes.ts";
 import activityRoutes from "./backend/routes/activityRoutes.ts";
+import projectRoutes from "./backend/routes/projectRoutes.ts";
+import bugRoutes from "./backend/routes/bugRoutes.ts";
+import dashboardRoutes from "./backend/routes/dashboardRoutes.ts";
 import { authenticate } from "./backend/middleware/auth.ts";
 import { connectDB } from "./backend/config/db.ts";
 
@@ -44,6 +47,9 @@ async function startServer() {
   app.use("/api/performance", performanceRoutes);
   app.use("/api/notifications", notificationRoutes);
   app.use("/api/activity", activityRoutes);
+  app.use("/api/projects", projectRoutes);
+  app.use("/api/bugs", bugRoutes());
+  app.use("/api/dashboard", dashboardRoutes);
   
   // Backward compatibility for the frontend calls that use /api/users directly
   app.use("/api", authRoutes); 

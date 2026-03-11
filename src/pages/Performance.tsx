@@ -8,6 +8,7 @@ import { motion } from 'motion/react';
 export const Performance: React.FC = () => {
   const { token, user } = useAuth();
   const [reviews, setReviews] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
   const [aiQuery, setAiQuery] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -21,8 +22,17 @@ export const Performance: React.FC = () => {
 
   useEffect(() => {
     fetchPerformance();
+    fetchStats();
     if (user?.role !== 'employee') fetchEmployees();
   }, []);
+
+  const fetchStats = async () => {
+    const res = await fetch('/api/dashboard/stats', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+    setStats(data);
+  };
 
   const fetchEmployees = async () => {
     const res = await fetch('/api/auth/users', {
@@ -147,9 +157,9 @@ export const Performance: React.FC = () => {
               <div>
                 <p className="text-slate-500 text-sm">Overall Rating</p>
                 <div className="flex items-center space-x-1">
-                  <span className="text-2xl font-bold">4.8</span>
+                  <span className="text-2xl font-bold">{stats?.avgRating || "0.0"}</span>
                   <div className="flex text-amber-400">
-                    {[1, 2, 3, 4, 5].map(i => <Star key={i} size={14} fill={i <= 4 ? "currentColor" : "none"} />)}
+                    {[1, 2, 3, 4, 5].map(i => <Star key={i} size={14} fill={i <= Math.round(parseFloat(stats?.avgRating || "0")) ? "currentColor" : "none"} />)}
                   </div>
                 </div>
               </div>
@@ -160,7 +170,7 @@ export const Performance: React.FC = () => {
               </div>
               <div>
                 <p className="text-slate-500 text-sm">Growth Score</p>
-                <span className="text-2xl font-bold">+12%</span>
+                <span className="text-2xl font-bold">{stats?.growthScore || "0"}</span>
               </div>
             </div>
           </div>
